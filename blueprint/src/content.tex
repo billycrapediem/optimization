@@ -5,3 +5,342 @@
 % If you want to split the blueprint content into several files then
 % the current file can be a simple sequence of \input. Otherwise It
 % can start with a \section or \chapter for instance.
+
+\documentclass{article}
+\usepackage[thms=dfn+lem+prop+thm+cor]{blueprint}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{mathtools}
+
+\title{Gradient Methods for Convex Optimization}
+\author{Based on DSCC 435 Lecture 3}
+\date{September 4, 2025}
+
+\begin{document}
+
+\maketitle
+
+\section{Convex Smooth Functions}
+
+\subsection{Smoothness}
+
+\begin{definition}[L-smooth function]
+  \label{def:l_smooth}
+  \lean{LipschitzWith}
+  \leanok
+  A differentiable function $f: \mathbb{R}^n \to \mathbb{R}$ is called $L$-smooth on $\mathbb{R}^n$ if its gradient is $L$-Lipschitz continuous on $\mathbb{R}^n$, i.e.,
+  \[
+    \|\nabla f(x) - \nabla f(y)\| \leq L\|x - y\|, \quad \text{for all } x, y \in \mathbb{R}^n.
+  \]
+\end{definition}
+
+\begin{lemma}[Characterizations of L-smoothness]
+  \label{lem:smooth_characterizations}
+  \lean{lipschitz_continuos_upper_bound', convex_function}
+  \leanok
+  \uses{def:l_smooth}
+  Let $f$ be a convex and differentiable function. Then, the following statements are equivalent:
+  \begin{enumerate}
+    \item[(i)] $f$ is $L$-smooth;
+    \item[(ii)] for all $x, y \in \mathbb{R}^n$,
+    \[
+      f(y) - f(x) - \langle\nabla f(x), y - x\rangle \leq \frac{L}{2}\|x - y\|^2;
+    \]
+    \item[(iii)] for all $x, y \in \mathbb{R}^n$,
+    \[
+      f(x) + \langle\nabla f(x), y - x\rangle + \frac{1}{2L}\|\nabla f(x) - \nabla f(y)\|^2 \leq f(y);
+    \]
+    \item[(iv)] for all $x, y \in \mathbb{R}^n$,
+    \[
+      \frac{1}{L}\|\nabla f(x) - \nabla f(y)\|^2 \leq \langle\nabla f(x) - \nabla f(y), x - y\rangle;
+    \]
+    \item[(v)] for all $x, y \in \mathbb{R}^n$,
+    \[
+      \langle\nabla f(x) - \nabla f(y), x - y\rangle \leq L\|x - y\|^2.
+    \]
+  \end{enumerate}
+\end{lemma}
+
+\begin{proof}
+  \uses{def:l_smooth}
+  \textbf{(i) $\Rightarrow$ (ii):} Consider $g(t) = f(x + t(y - x))$ for $t \in [0, 1]$. We have $g(0) = f(x)$, $g(1) = f(y)$, and $g'(t) = \langle\nabla f(x + t(y - x)), y - x\rangle$.
+  
+  Then,
+  \[
+    g(1) = g(0) + \int_0^1 g'(\tau) d\tau,
+  \]
+  equivalently,
+  \[
+    f(y) = f(x) + \int_0^1 \langle\nabla f(x + \tau(y - x)), y - x\rangle d\tau.
+  \]
+  
+  Using Cauchy-Schwarz inequality and $L$-smoothness:
+  \begin{align}
+    f(y) - f(x) - \langle\nabla f(x), y - x\rangle &= \int_0^1 \langle\nabla f(x + \tau(y - x)) - \nabla f(x), y - x\rangle d\tau \\
+    &\leq \int_0^1 L\tau\|y - x\|^2 d\tau = \frac{L}{2}\|y - x\|^2.
+  \end{align}
+  
+  \textbf{(ii) $\Rightarrow$ (iii):} Fix $x_0 \in \mathbb{R}^n$ and consider the convex function $\phi(y) = f(y) - \langle\nabla f(x_0), y\rangle$. The optimal solution is $y^* = x_0$. Using (ii):
+  \[
+    \phi(y^*) = \min_{x \in \mathbb{R}^n} \phi(x) \leq \min_{x \in \mathbb{R}^n} \left[\phi(y) + \langle\nabla\phi(y), x - y\rangle + \frac{L}{2}\|x - y\|^2\right]
+  \]
+  \[
+    = \min_{r \geq 0} \left[\phi(y) - r\|\nabla\phi(y)\| + \frac{L}{2}r^2\right] = \phi(y) - \frac{1}{2L}\|\nabla\phi(y)\|^2
+  \]
+  
+  Hence, (iii) holds since $\nabla\phi(y) = \nabla f(y) - \nabla f(x_0)$.
+  
+  \textbf{(iii) $\Rightarrow$ (iv):} Add two copies of (iii) with $x$ and $y$ interchanged.
+  
+  \textbf{(iv) $\Rightarrow$ (i):} Direct application of Cauchy-Schwarz inequality.
+  
+  \textbf{(ii) $\Rightarrow$ (v):} Add two copies of (ii) with $x$ and $y$ interchanged.
+  
+  \textbf{(v) $\Rightarrow$ (ii):} Using the integral representation and (v):
+  \begin{align}
+    f(y) - f(x) - \langle\nabla f(x), y - x\rangle &= \int_0^1 \langle\nabla f(x + \tau(y - x)) - \nabla f(x), y - x\rangle d\tau \\
+    &\leq \int_0^1 L\tau\|y - x\|^2 d\tau = \frac{L}{2}\|y - x\|^2.
+  \end{align}
+\end{proof}
+
+\subsection{Gradient Method}
+
+\begin{definition}[Gradient Method Algorithm]
+  \label{def:gradient_method}
+  \lean{GradientDescent}
+  \leanok
+  \uses{def:l_smooth}
+  The Gradient Method for minimizing a function $f: \mathbb{R}^n \to \mathbb{R}$ is defined as follows:
+  
+  \textbf{Input:} Initial point $x_0 \in \mathbb{R}^n$
+  
+  \textbf{For} $k = 0, 1, \ldots, K-1$:
+  \begin{enumerate}
+    \item Choose step size $h_k > 0$
+    \item Compute $x_{k+1} = x_k - h_k \nabla f(x_k)$
+  \end{enumerate}
+  
+  \textbf{Output:} $x_K$
+\end{definition}
+
+\begin{lemma}[Descent Property]
+  \label{lem:descent_property}
+  \lean{convex_lipschitz}
+  \leanok
+  \uses{def:gradient_method, lem:smooth_characterizations}
+  Assume $f$ is convex and $L$-smooth, and choose step size $h \in (0, 2/L)$. Then for any $x \in \mathbb{R}^n$:
+  \[
+    f(x - h\nabla f(x)) \leq f(x) - \frac{h}{2}\|\nabla f(x)\|^2.
+  \]
+\end{lemma}
+
+\begin{proof}
+  \uses{lem:smooth_characterizations}
+  Using the $L$-smoothness characterization (ii) from Lemma~\ref{lem:smooth_characterizations}:
+  \begin{align}
+    f(x - h\nabla f(x)) &\leq f(x) + \langle\nabla f(x), -h\nabla f(x)\rangle + \frac{L}{2}\|h\nabla f(x)\|^2 \\
+    &= f(x) - h\|\nabla f(x)\|^2 + \frac{Lh^2}{2}\|\nabla f(x)\|^2 \\
+    &= f(x) + \left(\frac{Lh^2}{2} - h\right)\|\nabla f(x)\|^2 \\
+    &= f(x) - h\left(1 - \frac{Lh}{2}\right)\|\nabla f(x)\|^2.
+  \end{align}
+  
+  Since $h < 2/L$, we have $1 - \frac{Lh}{2} > 0$, and therefore:
+  \[
+    f(x - h\nabla f(x)) \leq f(x) - \frac{h}{2}\|\nabla f(x)\|^2.
+  \]
+\end{proof}
+
+\begin{theorem}[Convergence Rate of Gradient Method]
+  \label{thm:gradient_convergence}
+  \lean{gradient_method}
+  \leanok
+  \uses{def:gradient_method, lem:descent_property}
+  Assume $f$ is convex and $L$-smooth, and choose constant step size $h \in (0, 2/L)$ for every $k \geq 0$. Let $x^*$ be an optimal solution and $f^* = f(x^*)$. Then the Gradient Method generates a sequence $\{x_k\}$ satisfying:
+  \[
+    f(x_k) - f^* \leq \frac{2[f(x_0) - f^*]\|x_0 - x^*\|^2}{2\|x_0 - x^*\|^2 + kh(2 - Lh)[f(x_0) - f^*]}, \quad \forall k \geq 0.
+  \]
+\end{theorem}
+
+\begin{proof}
+  \uses{lem:descent_property, lem:smooth_characterizations}
+  Let $r_k := \|x_k - x^*\|$. From the update rule:
+  \begin{align}
+    r_{k+1}^2 &= \|x_k - x^* - h\nabla f(x_k)\|^2 \\
+    &= r_k^2 - 2h\langle\nabla f(x_k), x_k - x^*\rangle + h^2\|\nabla f(x_k)\|^2 \\
+    &= r_k^2 - 2h\langle\nabla f(x_k) - \nabla f(x^*), x_k - x^*\rangle + h^2\|\nabla f(x_k)\|^2.
+  \end{align}
+  
+  Using characterization (iv) from Lemma~\ref{lem:smooth_characterizations}:
+  \[
+    r_{k+1}^2 \leq r_k^2 - h\left(\frac{2}{L} - h\right)\|\nabla f(x_k)\|^2.
+  \]
+  
+  Therefore, $r_k \leq r_0$ for all $k$. From Lemma~\ref{lem:descent_property}:
+  \[
+    f(x_{k+1}) \leq f(x_k) - \alpha\|\nabla f(x_k)\|^2,
+  \]
+  where $\alpha = h(1 - Lh/2)$.
+  
+  Define $\Delta_k = f(x_k) - f^*$. By convexity:
+  \[
+    \Delta_k \leq \langle\nabla f(x_k), x_k - x^*\rangle \leq r_k\|\nabla f(x_k)\| \leq r_0\|\nabla f(x_k)\|.
+  \]
+  
+  Thus:
+  \[
+    \Delta_{k+1} \leq \Delta_k - \frac{\alpha}{r_0^2}\Delta_k^2.
+  \]
+  
+  Dividing by $\Delta_{k+1}\Delta_k$:
+  \[
+    \frac{1}{\Delta_{k+1}} \geq \frac{1}{\Delta_k} + \frac{\alpha}{r_0^2}\frac{\Delta_k}{\Delta_{k+1}} \geq \frac{1}{\Delta_k} + \frac{\alpha}{r_0^2}.
+  \]
+  
+  Summing these inequalities:
+  \[
+    \frac{1}{\Delta_k} \geq \frac{1}{\Delta_0} + \frac{\alpha k}{r_0^2}.
+  \]
+  
+  The result follows by inverting this inequality.
+\end{proof}
+
+\begin{corollary}[Optimal Step Size]
+  \label{cor:optimal_stepsize}
+  \lean{gradient_method}
+  \leanok
+  \uses{thm:gradient_convergence}
+  Assume $f$ is convex and $L$-smooth, and choose $h = 1/L$ for every $k \geq 0$. Then:
+  \[
+    f(x_k) - f^* \leq \frac{2L\|x_0 - x^*\|^2}{k + 4}, \quad \forall k \geq 0.
+  \]
+\end{corollary}
+
+\begin{proof}
+  \uses{thm:gradient_convergence, lem:smooth_characterizations}
+  Choosing $h = 1/L$ maximizes $h(2 - Lh)$ in Theorem~\ref{thm:gradient_convergence}. Using smoothness:
+  \[
+    f(x_0) \leq f^* + \langle\nabla f(x^*), x_0 - x^*\rangle + \frac{L}{2}\|x_0 - x^*\|^2 = f^* + \frac{L}{2}\|x_0 - x^*\|^2.
+  \]
+  
+  Substituting into Theorem~\ref{thm:gradient_convergence} with $h = 1/L$ gives the result.
+\end{proof}
+
+\section{Strongly Convex and Smooth Functions}
+
+\begin{definition}[Strongly convex function]
+  \label{def:strongly_convex}
+  \lean{ConvexOn}
+  \leanok
+  A proper extended real-valued function $f$ is $\mu$-strongly convex if
+  \[
+    f(\lambda x + (1-\lambda)y) \leq \lambda f(x) + (1-\lambda)f(y) - \lambda(1-\lambda)\frac{\mu}{2}\|x - y\|^2
+  \]
+  for all $x, y \in \mathbb{R}^n$, $\lambda \in [0,1]$.
+\end{definition}
+
+\begin{lemma}[Characterization of strong convexity]
+  \label{lem:strongly_convex_char}
+  \lean{ConvexOn}
+  \leanok
+  \uses{def:strongly_convex}
+  A function $f$ is $\mu$-strongly convex if and only if $f - \frac{\mu}{2}\|\cdot\|_2^2$ is convex.
+\end{lemma}
+
+\begin{theorem}[First-order characterization]
+  \label{thm:strongly_convex_first_order}
+  \lean{Convex_first_order_condition'}
+  \leanok
+  \uses{def:strongly_convex}
+  A continuously differentiable function $f$ is $\mu$-strongly convex on $\mathbb{R}^n$ if and only if for any $x, y \in \mathbb{R}^n$:
+  \[
+    f(y) \geq f(x) + \langle\nabla f(x), y - x\rangle + \frac{\mu}{2}\|x - y\|^2.
+  \]
+\end{theorem}
+
+\begin{theorem}[Second-order characterization]
+  \label{thm:strongly_convex_second_order}
+  \lean{ConvexOn}
+  \leanok
+  \uses{def:strongly_convex}
+  A twice continuously differentiable function $f$ is $\mu$-strongly convex on $\mathbb{R}^n$ if and only if for any $x \in \mathbb{R}^n$:
+  \[
+    \nabla^2 f(x) \succeq \mu I.
+  \]
+\end{theorem}
+
+\begin{lemma}[Properties of strongly convex functions]
+  \label{lem:strongly_convex_props}
+  \lean{ConvexOn}
+  \leanok
+  \uses{def:strongly_convex, thm:strongly_convex_first_order}
+  If a continuously differentiable function $f$ is $\mu$-strongly convex on $\mathbb{R}^n$, then:
+  \begin{enumerate}
+    \item[(i)] for all $x, y \in \mathbb{R}^n$,
+    \[
+      f(y) \leq f(x) + \langle\nabla f(x), y - x\rangle + \frac{1}{2\mu}\|\nabla f(x) - \nabla f(y)\|^2;
+    \]
+    \item[(ii)] for all $x, y \in \mathbb{R}^n$,
+    \[
+      \langle\nabla f(x) - \nabla f(y), x - y\rangle \leq \frac{1}{\mu}\|\nabla f(x) - \nabla f(y)\|^2;
+    \]
+    \item[(iii)] for all $x, y \in \mathbb{R}^n$,
+    \[
+      \mu\|x - y\| \leq \|\nabla f(x) - \nabla f(y)\|.
+    \]
+  \end{enumerate}
+\end{lemma}
+
+\begin{lemma}[Key inequality for strongly convex and smooth functions]
+  \label{lem:strongly_convex_smooth_ineq}
+  \lean{ConvexOn, LipschitzWith}
+  \leanok
+  \uses{def:strongly_convex, def:l_smooth}
+  Assume $f$ is $\mu$-strongly convex and $L$-smooth. For every $x, y \in \mathbb{R}^n$:
+  \[
+    \langle\nabla f(x) - \nabla f(y), x - y\rangle \geq \frac{\mu L}{\mu + L}\|x - y\|^2 + \frac{1}{\mu + L}\|\nabla f(x) - \nabla f(y)\|^2.
+  \]
+\end{lemma}
+
+\begin{theorem}[Linear convergence for strongly convex functions]
+  \label{thm:strongly_convex_convergence}
+  \lean{gradient_method}
+  \leanok
+  \uses{def:gradient_method, def:strongly_convex, def:l_smooth, lem:strongly_convex_smooth_ineq}
+  Assume $f$ is $\mu$-strongly convex and $L$-smooth, and choose $0 \leq h \leq 2/(\mu + L)$. Then the Gradient Method generates a sequence $\{x_k\}$ such that:
+  \[
+    \|x_k - x^*\|^2 \leq \left(1 - \frac{2h\mu L}{\mu + L}\right)^k \|x_0 - x^*\|^2.
+  \]
+  
+  If $h = 2/(\mu + L)$, then:
+  \[
+    \|x_k - x^*\| \leq \left(\frac{\kappa - 1}{\kappa + 1}\right)^k \|x_0 - x^*\|,
+  \]
+  and
+  \[
+    f(x_k) - f^* \leq \frac{L}{2}\left(\frac{\kappa - 1}{\kappa + 1}\right)^{2k} \|x_0 - x^*\|^2,
+  \]
+  where $\kappa = L/\mu$ is the condition number.
+\end{theorem}
+
+\begin{proof}
+  \uses{lem:strongly_convex_smooth_ineq, lem:strongly_convex_props}
+  Let $r_k := \|x_k - x^*\|$. From the update rule:
+  \begin{align}
+    r_{k+1}^2 &= \|x_k - x^* - h\nabla f(x_k)\|^2 \\
+    &= r_k^2 - 2h\langle\nabla f(x_k), x_k - x^*\rangle + h^2\|\nabla f(x_k)\|^2 \\
+    &= r_k^2 - 2h\langle\nabla f(x_k) - \nabla f(x^*), x_k - x^*\rangle + h^2\|\nabla f(x_k)\|^2.
+  \end{align}
+  
+  Using Lemma~\ref{lem:strongly_convex_smooth_ineq}:
+  \[
+    r_{k+1}^2 \leq \left(1 - \frac{2h\mu L}{\mu + L}\right)r_k^2 + h\left(h - \frac{2}{\mu + L}\right)\|\nabla f(x_k)\|^2.
+  \]
+  
+  Since $0 \leq h \leq 2/(\mu + L)$, the last term is non-positive, giving:
+  \[
+    r_{k+1}^2 \leq \left(1 - \frac{2h\mu L}{\mu + L}\right)r_k^2.
+  \]
+  
+  The result follows by recursion. The optimal step size is $h = 2/(\mu + L)$, which gives the linear rate with factor $\frac{\kappa - 1}{\kappa + 1}$.
+\end{proof}
+
+\end{document}
