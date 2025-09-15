@@ -5,20 +5,6 @@
 % If you want to split the blueprint content into several files then
 % the current file can be a simple sequence of \input. Otherwise It
 % can start with a \section or \chapter for instance.
-
-\documentclass{article}
-\usepackage[thms=dfn+lem+prop+thm+cor]{blueprint}
-\usepackage{amsmath, amssymb, amsthm}
-\usepackage{mathtools}
-
-\title{Gradient Methods for Convex Optimization}
-\author{Based on DSCC 435 Lecture 3}
-\date{September 4, 2025}
-
-\begin{document}
-
-\maketitle
-
 \section{Convex Smooth Functions}
 
 \subsection{Smoothness}
@@ -342,5 +328,3 @@
   
   The result follows by recursion. The optimal step size is $h = 2/(\mu + L)$, which gives the linear rate with factor $\frac{\kappa - 1}{\kappa + 1}$.
 \end{proof}
-
-\end{document}
